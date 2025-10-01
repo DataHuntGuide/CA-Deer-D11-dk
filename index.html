@@ -1,65 +1,115 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8" />
-  <title>Leaflet Map with GPS Track</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <style>
-    #map { height: 100vh; }
-  </style>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+  <style>html, body {width: 100%; height: 100%; margin: 0; padding: 0;}</style>
+  <style>#map {position:absolute; top:0; bottom:0; right:0; left:0;}</style>
+
+  <!-- libs -->
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.6.0/dist/leaflet.js"></script>
+  <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.6.0/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css"/>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap-theme.min.css"/>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+  <!-- Leaflet.heat -->
+  <script src="https://cdn.jsdelivr.net/gh/python-visualization/folium@master/folium/templates/leaflet_heat.min.js"></script>
 </head>
 <body>
-<div id="map"></div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-  const coords = [
-    [34.61877, -118.63715],
-    [34.64111, -118.41333],
-    [34.56763, -118.62671],
-    [34.3475, -117.83],
-    [34.72898, -118.69205],
-    [34.33415, -117.83302],
-    [34.32633, -117.81434],
-    [34.35053, -117.83786],
-    [34.3409, -117.6568],
-    [34.2907, -117.8409],
-    [34.17335, -117.62921],
-    [34.16929, -117.52295],
-    [34.17586, -117.52373],
-    [34.17946, -117.52911],
-    [34.1764, -117.53211],
-    [34.17535, -117.53805],
-    [34.17906, -117.53094],
-    [34.17509, -117.54277],
-    [34.17081, -117.53512],
-    [34.26500046, -117.63100082],
-    [34.32556, -117.83722],
-    [34.29100045, -118.04900055],
-    [34.28992, -118.04683],
-    [34.29037, -118.05076],
-    [34.18058, -118.01493],
-    [34.18951, -118.02533]
-  ];
+  <div id="map"></div>
 
-  const map = L.map('map');
-  const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap contributors'
-  });
-  tileLayer.addTo(map);
+  <script>
+    // ⬇️ Coordinates ⬇️
+    let coords = [
+      [34.61877, -118.63715],
+      [34.64111, -118.41333],
+      [34.56763, -118.62671],
+      [34.34750, -117.83000],
+      [34.72898, -118.69205],
+      [34.33415, -117.83302],
+      [34.32633, -117.81434],
+      [34.35053, -117.83786],
+      [34.34090, -117.65680],
+      [34.29070, -117.84090],
+      [34.17335, -117.62921],
+      [34.16929, -117.52295],
+      [34.17586, -117.52373],
+      [34.17946, -117.52911],
+      [34.17640, -117.53211],
+      [34.17535, -117.53805],
+      [34.17906, -117.53094],
+      [34.17509, -117.54277],
+      [34.17081, -117.53512],
+      [34.26500046, -117.63100082],
+      [34.32556, -117.83722],
+      [34.29100045, -118.04900055],
+      [34.28992, -118.04683],
+      [34.29037, -118.05076],
+      [34.18058, -118.01493],
+      [34.18951, -118.02533]
+    ];
+    // ⬆️ Coordinates ⬆️
 
-  if (coords.length > 0) {
-    const polyline = L.polyline(coords, {color: 'red'}).addTo(map);
-    const bounds = polyline.getBounds();
-    const MAX_FIT_ZOOM = 15;
-    map.fitBounds(bounds, { padding: [20, 20] });
-    if (map.getZoom() > MAX_FIT_ZOOM) {
-      map.setZoom(MAX_FIT_ZOOM);
+    const fallbackCenter = [34.5, -118.0];
+    const MAX_FIT_ZOOM = 13;
+
+    const map = L.map("map", {
+      center: coords.length ? coords[0] : fallbackCenter,
+      zoom: 11,
+      zoomControl: true,
+      maxZoom: 18
+    });
+
+    const esriTopo = L.tileLayer(
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+      { attribution: "Esri", maxZoom: 18 }
+    ).addTo(map);
+
+    const heatLayer = L.heatLayer([], { radius: 55, blur: 40, minOpacity: 0.4 });
+    const gpsMarkers = L.layerGroup();
+    const trailsLayer = L.layerGroup();
+
+    const overlays = {
+      "Heatmap": heatLayer,
+      "GPS Markers": gpsMarkers,
+      "Trails": trailsLayer
+    };
+    L.control.layers({ "Esri Topo": esriTopo }, overlays, { collapsed: false, position: "topright" }).addTo(map);
+
+    heatLayer.addTo(map);
+    gpsMarkers.addTo(map);
+
+    function refreshPoints(points){
+      gpsMarkers.clearLayers();
+      heatLayer.setLatLngs([]);
+
+      points.forEach(function(pt){
+        L.circleMarker(pt, {
+          color: "black",
+          fillColor: "white",
+          fillOpacity: 0.7,
+          radius: 5,
+          weight: 3
+        })
+        .bindPopup(pt[0].toFixed(5) + ", " + pt[1].toFixed(5))
+        .addTo(gpsMarkers);
+      });
+
+      heatLayer.setLatLngs(points);
+
+      if(points.length){
+        const bounds = L.latLngBounds(points);
+        map.fitBounds(bounds, { padding: [20, 20] });
+        if (map.getZoom() > MAX_FIT_ZOOM) map.setZoom(MAX_FIT_ZOOM);
+      } else {
+        map.setView(fallbackCenter, 11);
+      }
     }
-  } else {
-    map.setView([0, 0], 2);
-  }
-</script>
+
+    refreshPoints(coords);
+  </script>
 </body>
 </html>
